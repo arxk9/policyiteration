@@ -31,7 +31,6 @@ class DynamicProgramming:
 		epsilon = tolerance
 
 		while iterId < nIterations:
-			iterId += 1
 			delta = 0
 			for current_state in range(self.nStates):
 				v = V[current_state]
@@ -42,6 +41,7 @@ class DynamicProgramming:
 						max_value = value
 				V[current_state] = max_value # using greedy policy
 				delta = max(delta, abs(v - V[current_state]))
+			iterId += 1
 			if delta < epsilon:
 				break
 		# output a deterministic policy
@@ -78,31 +78,33 @@ class DynamicProgramming:
 		iterId = 0
 		
 		while iterId < nIterations:
-			iterId += 1
 			# Policy Evaluation Linear Systems of Equations
 			V = self.evaluatePolicy_SolvingSystemOfLinearEqs(policy)
 			# Policy Improvement
-			policy, policy_stable = self.extractPolicy(V)
-			if policy_stable is True:
+			policy, policy_stable = self.extractPolicy(V, policy)
+			iterId += 1
+			if policy_stable:
 				break
 		print("Number of iterations of Policy Iteration: ", iterId)
 
 		return [policy, V, iterId]
 
 
-	def extractPolicy(self, V):
+	def extractPolicy(self, V, old_policy):
 		'''Procedure to extract a policy from a value function
 		pi <-- argmax_a R^a + gamma T^a V
 
 		Inputs:
 		V -- Value function: array of |S| entries
+		old_policy -- Policy: original policy (to check if stable)
 
 		Output:
 		policy -- Policy: array of |S| entries'''
 
+		policy = old_policy
 		policy_stable = True
 		for current_state in range(self.nStates):
-			old_action = int(policy[current_state])
+			old_action = int(old_policy[current_state])
 			# pick action that maximizes value
 			max_value = -np.inf
 			selected_action = old_action
@@ -113,7 +115,7 @@ class DynamicProgramming:
 					selected_action = action
 			policy[current_state] = selected_action
 			if old_action != policy[current_state]:
-					policy_stable = False
+				policy_stable = False
 
 		return policy, policy_stable
 
@@ -134,7 +136,7 @@ class DynamicProgramming:
 			transition_matrix.append(self.T[int(policy[i])][i].tolist())
 		transition_matrix = np.array(transition_matrix)
 		# Calculate Value Function using system of linear equations
-		V = np.dot(np.linalg.inv((np.identity(self.nStates) - (self.discount * transition_matrix))), self.R[0])
+		V = np.dot(np.linalg.inv((np.identity(self.nStates) - (self.discount * transition_matrix))), self.R[0]) # since rewards same for all actions at each state
 
 		return V
 
@@ -161,7 +163,6 @@ class DynamicProgramming:
 		epsilon = tolerance
 
 		while iterId < nIterations:
-			iterId += 1
 			# Partial Policy Evaluation using iteratively method
 			policy_iterId = 0
 			while policy_iterId < nPolicyEvalIterations:
@@ -175,8 +176,9 @@ class DynamicProgramming:
 				if delta < tolerance:
 					break
 			# Policy Improvement
-			policy, policy_stable = self.extractPolicy(V)
-			if policy_stable is True:
+			policy, policy_stable = self.extractPolicy(V, policy)
+			iterId += 1
+			if policy_stable:
 				break
 
 		print("Number of iterations of Policy Iteration: ", iterId)
