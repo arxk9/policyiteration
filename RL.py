@@ -1,6 +1,7 @@
 from MDP import build_mazeMDP, print_policy
 import numpy as np
 import matplotlib.pyplot as plt
+import sys
 
 class ReinforcementLearning:
 	def __init__(self, mdp, sampleReward):
@@ -47,37 +48,36 @@ class ReinforcementLearning:
 
 		# temporary values to ensure that the code compiles until this
 		# function is coded
-		Q = np.zeros([self.mdp.nActions,self.mdp.nStates])
-		policy = np.zeros(self.mdp.nStates,int)
+		Q = np.zeros([self.mdp.nActions, self.mdp.nStates])
+		policy = np.zeros(self.mdp.nStates, int)
 
 		cumulative_reward = []
-		average_reward = 0
 
 		for i_episode in range(1, nEpisodes+1):
 			if i_episode % 1000 == 0:
 				print("\rEpisode {}/{}.".format(i_episode, nEpisodes), end="")
 				sys.stdout.flush()
 			
-			sum_rewards = 0
-			state = np.random.randint(16)
+			reward_sum = 0
+			state = np.random.randint(self.mdp.nStates)
+
 			while True:
 				policy[state] = np.argmax(Q[:, state])
 				# epsilon greedy
 				explore = np.random.binomial(1, epsilon)
 				if explore == 1:
-					action = np.random.randint(4)
+					action = np.random.randint(self.mdp.nActions)
 				else:
 					action = policy[state]
 				
 				reward, next_state = self.sampleRewardAndNextState(state, action)
-				sum_rewards += reward
-				best_next_action = np.argmax(Q[:, next_state])
-				Q[action][state] += alpha * (reward + (self.mdp.discount * Q[best_next_action][next_state]) - Q[action][state])
+				reward_sum += reward
+				Q[action][state] += alpha * (reward + (self.mdp.discount * Q[np.argmax(Q[:, next_state])][next_state]) - Q[action][state])
 				state = next_state
 				if next_state == 16:  # if the terminal state is reached, break
 					break
 		
-			cumulative_reward.append(sum_rewards)
+			cumulative_reward.append(reward_sum)
 			
 		#print(cumulative_reward)
 		print(len(cumulative_reward))
@@ -108,7 +108,7 @@ class ReinforcementLearning:
 		# temporary values to ensure that the code compiles until this
 		# function is coded
 		Q = np.zeros([self.mdp.nActions,self.mdp.nStates])  # action * state table
-		policy = np.zeros(self.mdp.nStates,int)  			# vector of size state
+		policy = np.zeros(self.mdp.nStates, int)  			# vector of size state
 		C = np.zeros_like(Q)
 		nSteps = 100_000
 
@@ -124,25 +124,25 @@ class ReinforcementLearning:
 			state = np.random.randint(16)
 			
 			for t in range(nSteps):
-				action = np.random.randint(4)
+				action = np.random.randint(self.mdp.nActions) # random for soft behavior policy
 				reward, next_state = self.sampleRewardAndNextState(state, action)
 				episode.append((state, action, reward))
 				if next_state == 16:  # if the terminal state is reached, break
 					break
 				state = next_state
 			
-			G = 0.0
-			W = 1.0
+			G = 0
+			W = 1
 			
-			for t in range(len(episode))[::-1]:
+			for t in reversed(range(len(episode))):
 				state, action, reward = episode[t]
 				G = self.mdp.discount * G + reward
 				C[action][state] += W
-				Q[action][state] += (W / C[action][state]) * (G - Q[action][state])
+				Q[action][state] += W / C[action][state] * (G - Q[action][state])
 				policy[state] = np.argmax(Q[:, state])				
 				if action != policy[state]:
 					break
-				W = W / (1/self.mdp.nActions)
+				W *= self.mdp.nActions
 
 		return [Q, policy]
 
@@ -151,9 +151,11 @@ if __name__ == '__main__':
 	rl = ReinforcementLearning(mdp, np.random.normal)
 
 	# Test Q-learning
-	[Q, policy] = rl.OffPolicyTD(nEpisodes=500, epsilon=0.1)
+	[Q, policy] = rl.OffPolicyTD(nEpisodes=5000, epsilon=0.1)
+	print("q learning")
 	print_policy(policy)
 
 	# Test Off-Policy MC
-	[Q, policy] = rl.OffPolicyMC(nEpisodes=500, epsilon=0.1)
-	print_policy(policy)
+	# [Q, policy] = rl.OffPolicyMC(nEpisodes=100000, epsilon=0.1)
+	# print("off policy mc")
+	# print_policy(policy)
